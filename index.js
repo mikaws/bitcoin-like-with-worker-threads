@@ -1,5 +1,6 @@
 const { payloads } = require('./payloads.json')
-const { Worker, isMainThread } = require('worker_threads')
+const { crypto } = require('crypto')
+const { Worker, isMainThread, parentPort } = require('worker_threads')
 
 const LEADING_ZEROES = 4
 const final = []
@@ -16,7 +17,18 @@ if(isMainThread){
       worker.on('error', console.error)
 
       console.log(`Iniciando worker de ID ${worker.threadId} e enviando o payload "${payload}"`)
-    }
   }
+} else {
+  parentPort.once('message', (message) => {
+    const payload = message
+    let nonce = 0
+    let generatedHash = ''
 
+    do {
+      generatedHash = crypto.createHash('sha256').update(payload + nonce).digest('hex')
+      nonce++
+    } while (generatedHash.slice(0, process.env.LEADING_ZEROES) !== '0'.repeat(process.env.LEADING_ZEROES))
 
+    parentPort.postMessage({ payload: message, nonce, hash: generatedHash})
+  })
+}
